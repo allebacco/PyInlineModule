@@ -93,7 +93,7 @@ class InlineFunction(object):
             for var_name, default_value in default_values.items():
                 function_boilerplate += '    if(%s.ptr() == nullptr)\n' % var_name
                 function_boilerplate += '    {\n'
-                function_boilerplate += '        static const char* default_value_repr = "%s";\n' % default_value 
+                function_boilerplate += '        static const char* default_value_repr = "%s";\n' % default_value
                 function_boilerplate += '        %s.ptr() = PyRun_String(default_value_repr, Py_eval_input, scope, scope);\n' % var_name
                 function_boilerplate += '    }\n'
 
@@ -200,7 +200,7 @@ class InlineModule(object):
 
 def build_install_module(mod_dir, code_str, mod_name, extension_kwargs):
     # Save the current path so we can reset at the end of this function.
-    curpath = os.getcwd() 
+    curpath = os.getcwd()
     mod_name_c = '{0}.cpp'.format(mod_name)
 
     # Change to the code directory.
@@ -214,19 +214,19 @@ def build_install_module(mod_dir, code_str, mod_name, extension_kwargs):
             # Write out the code.
             f.write(code_str)
 
-        # Make sure numpy headers are included. 
+        # Make sure numpy headers are included.
         if 'include_dirs' not in extension_kwargs:
             extension_kwargs['include_dirs'] = []
         extension_kwargs['include_dirs'].append(pybind11.get_include())
 
-        # Create the extension module object. 
+        # Create the extension module object.
         ext = Extension(mod_name, [mod_name_c], **extension_kwargs)
 
         # Clean.
         setup(ext_modules=[ext], script_args=['clean'])
 
-        # Build and install the module here. 
-        setup(ext_modules=[ext], 
+        # Build and install the module here.
+        setup(ext_modules=[ext],
               script_args=['install', '--install-lib={0}'.format(mod_dir)])
 
     finally:
@@ -238,5 +238,9 @@ my_module.add_function(pippo)
 print('Module code')
 #print(my_module.get_cpp_code())
 
-build_install_module('.', my_module.get_cpp_code(), 'my_module', dict())
+ext_args = dict()
+if os.name == 'posix':
+    ext_args['extra_compile_args'] = ['-O3', '-march=native', '-std=c++11']
+
+build_install_module('.', my_module.get_cpp_code(), 'my_module', ext_args)
 
