@@ -1,6 +1,7 @@
 import inspect
 import dis
 import os
+from importlib.machinery import ExtensionFileLoader
 
 from .function import InlineFunction, IFunction
 from .inline import build_install_module
@@ -80,8 +81,18 @@ class InlineModule(object):
 
         self._cpp_code = cpp_code
 
-    def import_module(self, module_dir=None):
-        build_install_module()
+    def import_module(self, module_dir=None, silent=True):
+        cpp_code = self.get_cpp_code()
+        module_filename = build_install_module(cpp_code, self._name,
+                                               module_dir=module_dir, silent=silent)
+
+        if module_filename is None:
+            raise ImportError('Module %s could not be load' % self._name)
+
+        file_loader = ExtensionFileLoader(self._name, module_filename)
+        imported_module = file_loader.load_module(self._name)
+        return imported_module
+
 
 
 

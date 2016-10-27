@@ -22,16 +22,17 @@ def extra_compile_args():
     return _EXTRA_COMPILE_ARGS[::]
 
 
-def build_install_module(module_src, mod_name, extension_kwargs, mod_dir=None, silent=True):
+def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir=None, silent=True):
     """Build and install the compiled C Extension in the provided (or default) folder.
 
     Args:
         module_src(str): C++ source code of the module.
         mod_name(str): Name of the module.
-        extension_kwargs(dict): Extra arguments for the compilation of the extension module.
 
     Keyword Args:
-        mod_dir(str): Folder in which the module must be biult and installed. Default
+        extension_kwargs(dict): Extra arguments for the compilation of the extension module.
+            Default ``None`` for no custom args.
+        module_dir(str): Folder in which the module must be biult and installed. Default
             to a temporary folder.
         silent(bool): Disable verbosity logging. Default ``True``
 
@@ -44,11 +45,11 @@ def build_install_module(module_src, mod_name, extension_kwargs, mod_dir=None, s
     curpath = os.getcwd()
     mod_name_c = mod_name + '.cpp'
 
-    if mod_dir is None:
-        mod_dir = str(_PATH)
+    if module_dir is None:
+        module_dir = str(_PATH)
 
     # Change to the code directory.
-    os.chdir(mod_dir)
+    os.chdir(module_dir)
 
     module_filename = None
     try:
@@ -60,7 +61,10 @@ def build_install_module(module_src, mod_name, extension_kwargs, mod_dir=None, s
             module_cpp_file.write(module_src)
 
         # Ensure the original extension_kwargs will not be modified
-        extension_kwargs = extension_kwargs.copy()
+        if extension_kwargs is None:
+            extension_kwargs = dict()
+        else:
+            extension_kwargs = extension_kwargs.copy()
 
         # Make sure numpy headers are included.
         if 'include_dirs' not in extension_kwargs:
@@ -78,16 +82,18 @@ def build_install_module(module_src, mod_name, extension_kwargs, mod_dir=None, s
         ext = Extension(mod_name, [mod_name_c], **extension_kwargs)
 
         # Clean.
+        script_args = ['clean']
+        if silent:
+            script_args.append('--quiet')
         setup(ext_modules=[ext], script_args=['clean'])
 
         # Build and install the module.
-        script_args = ['install', '--install-lib=' + mod_dir]
+        script_args = ['install', '--install-lib=' + module_dir]
         if silent:
             script_args.append('--quiet')
-
         setup(ext_modules=[ext], script_args=script_args)
 
-        module_filename = os.path.join(mod_dir, mod_name + _MOD_EXTENSION)
+        module_filename = os.path.join(module_dir, mod_name + _MOD_EXTENSION)
     finally:
         os.chdir(curpath)
 
