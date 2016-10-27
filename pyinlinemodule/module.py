@@ -2,7 +2,8 @@ import inspect
 import dis
 import os
 
-from .function import InlineFunction
+from .function import InlineFunction, IFunction
+from .inline import build_install_module
 
 
 class InlineModule(object):
@@ -13,9 +14,9 @@ class InlineModule(object):
         self._cpp_code = ''
         self._cpp_footer = ''
 
-        self._build_footer_cpp()
+        self._create_footer()
 
-    def _build_footer_cpp(self):
+    def _create_footer(self):
         module_def = 'static struct PyModuleDef inline_module = {\n'
         module_def += '    PyModuleDef_HEAD_INIT,\n'
         module_def += '    "%s",\n' % self._name
@@ -35,7 +36,7 @@ class InlineModule(object):
         self._cpp_footer = module_def + '\n\n' + module_init
 
     def add_function(self, inline_function):
-        if not isinstance(inline_function, InlineFunction):
+        if not isinstance(inline_function, IFunction):
             inline_function = InlineFunction(inline_function)
 
         self._functions.append(inline_function)
@@ -45,10 +46,10 @@ class InlineModule(object):
 
     def get_cpp_code(self):
         if len(self._cpp_code) == 0:
-            self._build_module_code()
+            self._create_code()
         return self._cpp_code
 
-    def _build_module_code(self):
+    def _create_code(self):
         # Build include
         module_header = '''
         #include <Python.h>
@@ -78,4 +79,9 @@ class InlineModule(object):
         cpp_code += self._cpp_footer
 
         self._cpp_code = cpp_code
+
+    def import_module(self, module_dir=None):
+        build_install_module()
+
+
 

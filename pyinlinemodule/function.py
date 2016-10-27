@@ -23,16 +23,27 @@ def pippo(a, b, c=None, d=3, e=(1, None, "test")):
     return 5
 
 
-class InlineFunction(object):
+class IFunction(object):
+
+    def get_name(self):
+        raise NotImplementedError()
+
+    def get_code(self):
+        raise NotImplementedError()
+
+
+
+class InlineFunction(IFunction):
 
     def __init__(self, py_function):
+        super().__init__()
         self._py_function = py_function
         self._signature = inspect.signature(py_function)
         self._cpp_header_code = ''
         self._cpp_code = ''
 
         self._parse_signature()
-        self._build_cpp_code()
+        self._create_cpp()
 
     def _parse_signature(self):
         format_string = ''
@@ -55,9 +66,9 @@ class InlineFunction(object):
                 format_string += 'O'
                 default_values[var_name] = repr(arg.default)
 
-        self._build_header_code(variable_names, format_string, keyword_args, default_values)
+        self._create_header(variable_names, format_string, keyword_args, default_values)
 
-    def _build_header_code(self, variable_names, format_string, keyword_args, default_values):
+    def _create_header(self, variable_names, format_string, keyword_args, default_values):
 
         function_name = self._py_function.__name__
         variable_declaration = ('    py::object %s;' % var_name for var_name in variable_names)
@@ -99,7 +110,7 @@ class InlineFunction(object):
 
         self._cpp_header_code = function_boilerplate
 
-    def _build_cpp_code(self):
+    def _create_cpp(self):
         cpp_code = None
 
         STORE_FAST = dis.opmap['STORE_FAST']
