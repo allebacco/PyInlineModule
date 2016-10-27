@@ -92,7 +92,3 @@ class InlineModule(object):
         file_loader = ExtensionFileLoader(self._name, module_filename)
         imported_module = file_loader.load_module(self._name)
         return imported_module
-
-
-
-
