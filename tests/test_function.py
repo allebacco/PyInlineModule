@@ -2,6 +2,7 @@ import pytest
 
 from pyinlinemodule.function import InlineFunction
 
+
 def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(1, None, "test")):
     """this is a doctring
     """
