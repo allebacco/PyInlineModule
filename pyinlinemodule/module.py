@@ -7,6 +7,36 @@ from .function import InlineFunction, IFunction
 from .inline import build_install_module
 
 
+_OnLeavingScope_class = """
+
+class OnLeavingScope
+{
+public:
+    // Prevent copying
+    OnLeavingScope(const OnLeavingScope&) = delete;
+    OnLeavingScope& operator=(const OnLeavingScope&) = delete;
+
+    OnLeavingScope(const int count, PyObject*** objects) :
+        m_count(count),
+        m_objects(objects)
+    {}
+
+    ~OnLeavingScope()
+    {
+        for(int i=0; i<m_count; ++i)
+        {
+            PyObject** obj = m_objects[i];
+            Py_XDECREF(*obj);
+        }
+    }
+
+private:
+    const int m_count;
+    PyObject***  m_objects;
+};
+"""
+
+
 class InlineModule(object):
 
     def __init__(self, name):
@@ -54,10 +84,14 @@ class InlineModule(object):
         # Build include
         module_header = '''
         #include <Python.h>
+        #include <functional>
         #include <pybind11/pybind11.h>
 
         namespace py = pybind11;
+
         '''
+
+        module_header += _OnLeavingScope_class + '\n\n'
 
         # Merge code of all the functions
         function_code = ''

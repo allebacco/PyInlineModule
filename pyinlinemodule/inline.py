@@ -12,7 +12,11 @@ _MOD_EXTENSION = '.pyd'
 
 
 # Remove the temporary directory at exit
-atexit.register(shutil.rmtree, _PATH)
+def cleanup_temp_folder(temp_dir):
+    os.chmod(temp_dir, stat.S_IWRITE)
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+atexit.register(cleanup_temp_folder, _PATH)
 
 
 if os.name == 'posix':

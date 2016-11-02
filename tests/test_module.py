@@ -8,9 +8,7 @@ def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(None, "test")):
     """this is a doctring
     """
     __cpp__ = """
-    py::tuple args = py::make_tuple(a, b, c, d, e);
-    args.inc_ref();
-    return args.ptr();
+    return Py_BuildValue("(O,O,O,O,O)", a, b, c, d, e);
     """
     return None
 
@@ -19,9 +17,7 @@ def function_with_cpp_args(a, b):
     """this is a doctring
     """
     __cpp__ = """
-    py::tuple args = py::make_tuple(a, b);
-    args.inc_ref();
-    return args.ptr();
+    return Py_BuildValue("(O,O)", a, b);
     """
     return None
 
@@ -30,9 +26,7 @@ def function_with_cpp_noargs():
     """this is a doctring
     """
     __cpp__ = """
-    py::tuple args = py::make_tuple(1, 2, 3);
-    args.inc_ref();
-    return args.ptr();
+    return Py_BuildValue("(i,i,i)", 1, 2, 3);
     """
 
     i = 0

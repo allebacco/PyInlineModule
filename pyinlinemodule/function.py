@@ -77,31 +77,36 @@ class InlineFunction(IFunction):
         function_boilerplate += '    static char* _keywords_[] = {%s,nullptr};\n' % ','.join(keyword_args)
 
         # Variable arguments declaration
-        variable_declaration = ('    py::object %s;' % var_name for var_name in variable_names)
+        variable_declaration = ('    PyObject* %s = nullptr;' % var_name for var_name in variable_names)
         function_boilerplate += '\n'.join(variable_declaration)
         function_boilerplate += '\n\n'
 
+        dec_ref_variables = ('&%s' % var_name for var_name in variable_names)
+        function_boilerplate += '    PyObject** __obj_to_be_released[] = {%s};' % ','.join(dec_ref_variables)
+        function_boilerplate += '    OnLeavingScope __on_leaving_scope('
+        function_boilerplate += '%d, __obj_to_be_released);\n\n' % len(variable_names)
+
         # Arguments parsing
-        parsing_args = ('&(%s.ptr())' % var_name for var_name in variable_names)
+        parsing_args = ('&%s' % var_name for var_name in variable_names)
         parsing_args = ', '.join(parsing_args)
         function_boilerplate += '    if(!PyArg_ParseTupleAndKeywords(args, kwargs, "%s", _keywords_, %s))\n' % \
                                 (format_string, parsing_args)
         function_boilerplate += '        return nullptr;'
         function_boilerplate += '\n\n'
 
-        # Increment reference counting because py::object decrement it at destruction
+        # Increment reference counting because OnLeavingScope instance decrements them at destruction
         for var_name in variable_names:
-            function_boilerplate += '    %s.inc_ref();\n' % var_name
+            function_boilerplate += '    Py_XINCREF(%s);\n' % var_name
         function_boilerplate += '    \n'
 
         # Assign default values
         if len(default_values) > 0:
             function_boilerplate += '    PyObject* scope = PyEval_GetGlobals();\n'
             for var_name, default_value in default_values.items():
-                function_boilerplate += '    if(%s.ptr() == nullptr)\n' % var_name
+                function_boilerplate += '    if(%s == nullptr)\n' % var_name
                 function_boilerplate += '    {\n'
                 function_boilerplate += '        static const char* default_value_repr = "%s";\n' % default_value
-                function_boilerplate += '        %s.ptr() = PyRun_String(default_value_repr, Py_eval_input, scope, scope);\n' % var_name
+                function_boilerplate += '        %s = PyRun_String(default_value_repr, Py_eval_input, scope, scope);\n' % var_name
                 function_boilerplate += '    }\n'
 
         self._cpp_header_code = function_boilerplate

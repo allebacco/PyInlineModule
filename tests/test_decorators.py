@@ -5,9 +5,8 @@ from pyinlinemodule import cpp
 @cpp
 def compiled_function1(a):
     __cpp__ = """
-    py::int_ var = py::int_(a) + 5;
-    var.inc_ref();
-    return var.ptr();
+    long a_value = PyLong_AsLong(a);
+    return PyLong_FromLong(a_value + 5);
     """
     return a + 7
 
