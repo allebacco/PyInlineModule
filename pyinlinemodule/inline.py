@@ -56,6 +56,8 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
     if module_dir is None:
         module_dir = str(_PATH)
 
+    os.makedirs(module_dir, exist_ok=True)
+
     # Change to the code directory.
     os.chdir(module_dir)
 
@@ -105,6 +107,10 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
         module_filename = matched_files[0]
 
         os.chmod(module_filename, stat.S_IWRITE)
+    except:
+        if silent is False:
+            import traceback
+            traceback.print_exc()
     finally:
         os.chdir(curpath)
 
