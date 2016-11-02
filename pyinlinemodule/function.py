@@ -10,17 +10,8 @@ import dis
 import os
 
 
-def pippo(a, b, c=None, d=3, e=(1, None, "test")):
-    """this is a doctring
-    """
-    cpp = """
-    py::tuple args = py::make_tuple(a, b, c, d, e);
-    args.inc_ref();
-    return args.ptr();
-    """
-
-    i = 0
-    return 5
+STORE_FAST = dis.opmap['STORE_FAST']
+LOAD_CONST = dis.opmap['LOAD_CONST']
 
 
 class IFunction(object):
@@ -113,13 +104,11 @@ class InlineFunction(IFunction):
     def _create_cpp(self):
         cpp_code = None
 
-        STORE_FAST = dis.opmap['STORE_FAST']
-        LOAD_CONST = dis.opmap['LOAD_CONST']
         for instruction in dis.get_instructions(self._py_function):
             opcode = instruction.opcode
             if opcode == LOAD_CONST:
                 cpp_code = instruction.argval
-            elif opcode == STORE_FAST and instruction.argval == 'cpp':
+            elif opcode == STORE_FAST and instruction.argval == '__cpp__':
                 break
 
         self._cpp_code = cpp_code
@@ -132,20 +121,3 @@ class InlineFunction(IFunction):
 
     def get_code(self):
         return self._cpp_header_code + '\n{\n' + self._cpp_code + '\n}\n}\n'
-
-
-
-
-
-my_module = InlineModule('my_module')
-my_module.add_function(pippo)
-
-print('Module code')
-#print(my_module.get_cpp_code())
-
-ext_args = dict()
-if os.name == 'posix':
-    ext_args['extra_compile_args'] = ['-O3', '-march=native', '-std=c++11']
-
-build_install_module('.', my_module.get_cpp_code(), 'my_module', ext_args)
-
