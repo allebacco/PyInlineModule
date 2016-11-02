@@ -2,20 +2,28 @@ import os
 import tempfile
 import atexit
 import shutil
+import glob
+import stat
 
 
 _PATH = tempfile.mkdtemp(prefix='pyinline_tmp_')
 _EXTRA_COMPILE_ARGS = []
-_MOD_EXTENSION = 'pyd'
+_MOD_EXTENSION = '.pyd'
 
 
 # Remove the temporary directory at exit
 atexit.register(shutil.rmtree, _PATH)
 
+
 if os.name == 'posix':
     # Compile args for Linux systems, in particular GCC
     _EXTRA_COMPILE_ARGS += ['-O3', '-march=native', '-std=c++11']
-    _MOD_EXTENSION = 'so'
+    _MOD_EXTENSION = '.so'
+
+elif os.name == 'nt':
+    # Compile args for Windows systems, in particular MSVC
+    _EXTRA_COMPILE_ARGS = []
+    _MOD_EXTENSION = '.pyd'
 
 
 def extra_compile_args():
@@ -53,7 +61,7 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
 
     module_filename = None
     try:
-        from distutils.core import setup, Extension
+        from setuptools import setup, Extension
         import pybind11
 
         with open(mod_name_c, 'w') as module_cpp_file:
@@ -81,19 +89,22 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
         # Create the extension module object.
         ext = Extension(mod_name, [mod_name_c], **extension_kwargs)
 
-        # Clean.
-        script_args = ['clean']
-        if silent:
-            script_args.append('--quiet')
-        setup(ext_modules=[ext], script_args=['clean'])
-
         # Build and install the module.
-        script_args = ['install', '--install-lib=' + module_dir]
+        script_args = ['build', '--build-lib=' + module_dir]
         if silent:
             script_args.append('--quiet')
+        else:
+            script_args.append('--verbose')
         setup(ext_modules=[ext], script_args=script_args)
 
-        module_filename = os.path.join(module_dir, mod_name + _MOD_EXTENSION)
+        path_to_search = os.path.join(module_dir, mod_name + '.*' + _MOD_EXTENSION)
+        matched_files = glob.glob(path_to_search)
+        if len(matched_files) != 1:
+            raise RuntimeError("Unable to load the extension: matched files: %s" % str(matched_files))
+
+        module_filename = matched_files[0]
+
+        os.chmod(module_filename, stat.S_IWRITE)
     finally:
         os.chdir(curpath)
 

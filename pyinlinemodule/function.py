@@ -62,22 +62,27 @@ class InlineFunction(IFunction):
     def _create_header(self, variable_names, format_string, keyword_args, default_values):
 
         function_name = self._py_function.__name__
-        variable_declaration = ('    py::object %s;' % var_name for var_name in variable_names)
-        parsing_args = ('&(%s.ptr())' % var_name for var_name in variable_names)
 
         # Function signature
         function_boilerplate = 'extern "C" PyObject* ' + \
                                function_name + '(PyObject* self, PyObject* args, PyObject* kwargs)\n'
         function_boilerplate += '{\n'
 
+        # Skip variable parsing if function has no arguments
+        if len(variable_names) == 0:
+            self._cpp_header_code = function_boilerplate
+            return
+
         # Definition of keyword arguments
-        function_boilerplate += '    static char* _keywords_[] = {%s};\n' % ','.join(keyword_args)
+        function_boilerplate += '    static char* _keywords_[] = {%s,nullptr};\n' % ','.join(keyword_args)
 
         # Variable arguments declaration
+        variable_declaration = ('    py::object %s;' % var_name for var_name in variable_names)
         function_boilerplate += '\n'.join(variable_declaration)
         function_boilerplate += '\n\n'
 
         # Arguments parsing
+        parsing_args = ('&(%s.ptr())' % var_name for var_name in variable_names)
         parsing_args = ', '.join(parsing_args)
         function_boilerplate += '    if(!PyArg_ParseTupleAndKeywords(args, kwargs, "%s", _keywords_, %s))\n' % \
                                 (format_string, parsing_args)
@@ -120,4 +125,4 @@ class InlineFunction(IFunction):
         return self._py_function.__name__
 
     def get_code(self):
-        return self._cpp_header_code + '\n{\n' + self._cpp_code + '\n}\n}\n'
+        return self._cpp_header_code + '\n    {\n' + self._cpp_code + '\n    }\n}\n'
