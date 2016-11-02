@@ -1,12 +1,34 @@
+import pytest
 
+from pyinlinemodule.function import InlineFunction
 
-
-
-def pippo(a, b, c=None, d=3, e=(1, None, "test")):
+def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(1, None, "test")):
     """this is a doctring
     """
     __cpp__ = """
     py::tuple args = py::make_tuple(a, b, c, d, e);
+    args.inc_ref();
+    return args.ptr();
+    """
+    return None
+
+
+def function_with_cpp_args(a, b):
+    """this is a doctring
+    """
+    __cpp__ = """
+    py::tuple args = py::make_tuple(a, b);
+    args.inc_ref();
+    return args.ptr();
+    """
+    return None
+
+
+def function_with_cpp_noargs():
+    """this is a doctring
+    """
+    __cpp__ = """
+    py::tuple args = py::make_tuple(1, 2, 3);
     args.inc_ref();
     return args.ptr();
     """
@@ -15,18 +37,12 @@ def pippo(a, b, c=None, d=3, e=(1, None, "test")):
     return 5
 
 
+@pytest.mark.parametrize('func_call,expected_name', [
+    (function_with_cpp_args_kwargs, 'function_with_cpp_args_kwargs'),
+    (function_with_cpp_args, 'function_with_cpp_args'),
+    (function_with_cpp_noargs, 'function_with_cpp_noargs'),
+])
+def test_function_name(func_call, expected_name):
 
-
-def example_run():
-
-    my_module = InlineModule('my_module')
-    my_module.add_function(pippo)
-
-    print('Module code')
-    #print(my_module.get_cpp_code())
-
-    ext_args = dict()
-    if os.name == 'posix':
-        ext_args['extra_compile_args'] = ['-O3', '-march=native', '-std=c++11']
-
-    build_install_module('.', my_module.get_cpp_code(), 'my_module', ext_args)
+    pyfunction = InlineFunction(func_call)
+    assert pyfunction.get_name() == expected_name
