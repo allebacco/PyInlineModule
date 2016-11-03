@@ -110,7 +110,7 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
 
         module_filename = matched_files[0]
 
-        os.chmod(module_filename, stat.S_IWRITE)
+        os.chmod(module_filename, stat.S_IWRITE | stat.S_IREAD)
     except:
         if silent is False:
             import traceback
