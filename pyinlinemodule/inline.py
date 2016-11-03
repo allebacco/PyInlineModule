@@ -26,12 +26,24 @@ if os.name == 'posix':
 
 elif os.name == 'nt':
     # Compile args for Windows systems, in particular MSVC
-    _EXTRA_COMPILE_ARGS = []
+    _EXTRA_COMPILE_ARGS = ['/O2']
     _MOD_EXTENSION = '.pyd'
 
 
 def extra_compile_args():
+    """Extra compilation flags passed to the compiler
+    """
     return _EXTRA_COMPILE_ARGS[::]
+
+
+def set_extra_compile_args(compile_args):
+    """Set the extra compilation flags passed to teh compiler
+
+    Args:
+        compile_args(list[str]): List of arguments for the compiler
+    """
+    global _EXTRA_COMPILE_ARGS
+    _EXTRA_COMPILE_ARGS = list(compile_args)
 
 
 def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir=None, silent=True):

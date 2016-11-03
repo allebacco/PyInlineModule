@@ -15,18 +15,54 @@ LOAD_CONST = dis.opmap['LOAD_CONST']
 
 
 class IFunction(object):
+    """Base interface of a function that can be compiled in an C extension
+    """
 
     def get_name(self):
+        """Name of the function
+
+        Returns:
+            str: The name of the function
+        """
         raise NotImplementedError()
 
     def get_code(self):
+        """C++ code of the function
+
+        Returns:
+            str: The C++ code of the function
+        """
         raise NotImplementedError()
 
 
-
 class InlineFunction(IFunction):
+    """Function that can be compiled in an C extension.
+
+    A function can be compiled to C extension if contains the C++ code that shoud
+    be executed:
+
+    ::
+
+       def a_compilable_function(arg1, arg2, arg3=10):
+           '''The docstring
+           '''
+           a = 4
+           b = call_to_a_function(1)
+           __cpp__ = '''
+           // The C++ code that should be compiled and executed
+           Py_RETURN_NONE;
+           '''
+           return a + b
+
+    The C++ code can assume that the argument of the function exists even within the C++ code.
+    """
 
     def __init__(self, py_function):
+        """Constructor
+
+        Args:
+            py_function(function): The Python function with C++ code
+        """
         super().__init__()
         self._py_function = py_function
         self._signature = inspect.signature(py_function)
@@ -37,6 +73,8 @@ class InlineFunction(IFunction):
         self._create_cpp()
 
     def _parse_signature(self):
+        """Parse the signature of the function
+        """
         format_string = ''
         default_values = dict()
         is_parsing_kwargs = False
@@ -60,6 +98,8 @@ class InlineFunction(IFunction):
         self._create_header(variable_names, format_string, keyword_args, default_values)
 
     def _create_header(self, variable_names, format_string, keyword_args, default_values):
+        """Create the signature and argument parsing code of the C++ function
+        """
 
         function_name = self._py_function.__name__
 
@@ -112,6 +152,8 @@ class InlineFunction(IFunction):
         self._cpp_header_code = function_boilerplate
 
     def _create_cpp(self):
+        """Extract the C++ code from the function
+        """
         cpp_code = None
 
         for instruction in dis.get_instructions(self._py_function):
@@ -122,9 +164,6 @@ class InlineFunction(IFunction):
                 break
 
         self._cpp_code = cpp_code
-
-    def get_header_code(self):
-        return self._cpp_header_code
 
     def get_name(self):
         return self._py_function.__name__

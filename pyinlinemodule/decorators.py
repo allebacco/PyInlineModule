@@ -5,6 +5,15 @@ from .inline import build_install_module
 
 
 def cpp(func):
+    """Decorate a Python function to be compiled to C extension
+
+    Args:
+        func(function): The function woth C++ code
+
+    Returns:
+        function: The compiled function or the original function if errors happens
+            during compilation and function load.
+    """
     verbose = True
 
     name = func.__module__ + '_' + func.__name__
