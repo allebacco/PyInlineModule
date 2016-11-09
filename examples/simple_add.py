@@ -1,5 +1,5 @@
 
-from pyinlinemodule import cpp
+from pyinlinemodule import Cpp
 
 
 @Cpp(verbose=True)

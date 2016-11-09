@@ -1,6 +1,6 @@
 import pytest
 
-from pyinlinemodule import cpp
+from pyinlinemodule import Cpp
 
 
 @Cpp()
