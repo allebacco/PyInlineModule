@@ -2,7 +2,7 @@
 from pyinlinemodule import cpp
 
 
-@cpp(verbose=True)
+@Cpp(verbose=True)
 def compiled_function1(a):
     __cpp__ = """
     long a_value = PyLong_AsLong(a);

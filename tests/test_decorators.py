@@ -3,7 +3,7 @@ import pytest
 from pyinlinemodule import cpp
 
 
-@cpp()
+@Cpp()
 def compiled_function_cpp(a):
     __cpp__ = """
     long a_value = PyLong_AsLong(a);
@@ -11,7 +11,7 @@ def compiled_function_cpp(a):
     """
     return a + 7
 
-@cpp(no_cpp=True)
+@Cpp(no_cpp=True)
 def compiled_function_no_cpp(a):
     __cpp__ = """
     long a_value = PyLong_AsLong(a);
