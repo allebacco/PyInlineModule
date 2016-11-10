@@ -1,6 +1,6 @@
 import pytest
 
-from pyinlinemodule.function import InlineFunction
+from pyinlinemodule.function import InlineFunction, METH_NOARGS, METH_O, METH_VARARGS, METH_KEYWORDS
 
 
 def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(None, "test")):
@@ -21,6 +21,15 @@ def function_with_cpp_args(a, b):
     return None
 
 
+def function_with_cpp_single_args(a):
+    """this is a doctring
+    """
+    __cpp__ = """
+    return PyBuildValue("(O,O)", a, a);
+    """
+    return None
+
+
 def function_with_cpp_noargs():
     """this is a doctring
     """
@@ -35,9 +44,25 @@ def function_with_cpp_noargs():
 @pytest.mark.parametrize('func_call,expected_name', [
     (function_with_cpp_args_kwargs, 'function_with_cpp_args_kwargs'),
     (function_with_cpp_args, 'function_with_cpp_args'),
+    (function_with_cpp_single_args, 'function_with_cpp_single_args'),
     (function_with_cpp_noargs, 'function_with_cpp_noargs'),
 ])
 def test_function_name(func_call, expected_name):
 
     pyfunction = InlineFunction(func_call)
     assert pyfunction.get_name() == expected_name
+
+
+@pytest.mark.parametrize('func_call,expected_name,meth_def', [
+    (function_with_cpp_args_kwargs, 'function_with_cpp_args_kwargs', METH_KEYWORDS),
+    (function_with_cpp_args, 'function_with_cpp_args', METH_VARARGS),
+    (function_with_cpp_single_args, 'function_with_cpp_single_args', METH_O),
+    (function_with_cpp_noargs, 'function_with_cpp_noargs', METH_NOARGS),
+])
+def test_function_def(func_call, expected_name, meth_def):
+
+    fmt = (expected_name, expected_name, meth_def)
+    expected_result = '{"%s",reinterpret_cast<PyCFunction>(%s),%s,nullptr}' % fmt
+
+    pyfunction = InlineFunction(func_call)
+    assert pyfunction.get_function_def() == expected_result
