@@ -22,6 +22,15 @@ def function_with_cpp_args(a, b):
     return None
 
 
+def function_with_cpp_single_arg(a):
+    """this is a doctring
+    """
+    __cpp__ = """
+    return Py_BuildValue("(O,O)", a, a);
+    """
+    return None
+
+
 def function_with_cpp_noargs():
     """this is a doctring
     """
@@ -45,6 +54,13 @@ def compiled_function_with_cpp_args():
     inline_module = InlineModule('compiled_function_with_cpp_args')
     inline_module.add_function(function_with_cpp_args)
     return inline_module.import_module(), 'function_with_cpp_args'
+
+
+@pytest.fixture(scope='module')
+def compiled_function_with_cpp_single_arg():
+    inline_module = InlineModule('compiled_function_with_cpp_single_arg')
+    inline_module.add_function(function_with_cpp_single_arg)
+    return inline_module.import_module(), 'function_with_cpp_single_arg'
 
 
 @pytest.fixture(scope='module')
@@ -90,11 +106,11 @@ def test_compile_single_function_with_kwargs(compiled_function_with_cpp_args_kwa
     assert sys.getrefcount(result) == 2
 
 
-@pytest.mark.parametrize('args,kwargs,return_value', [
-    ((1, 2), dict(), (1, 2)),
-    ((1, []), dict(), (1, [])),
+@pytest.mark.parametrize('args,return_value', [
+    ((1, 2), (1, 2)),
+    ((1, []), (1, [])),
 ])
-def test_compile_single_function_with_args(compiled_function_with_cpp_args, args, kwargs, return_value):
+def test_compile_single_function_with_args(compiled_function_with_cpp_args, args, return_value):
 
     tested_module, func_name = compiled_function_with_cpp_args
 
@@ -102,11 +118,24 @@ def test_compile_single_function_with_args(compiled_function_with_cpp_args, args
 
     compiled_function = getattr(tested_module, func_name)
 
-    result = compiled_function(*args, **kwargs)
+    result = compiled_function(*args)
     assert result == return_value
 
     # ensuring only one reference exists, plus the reference in the sys.getrefcount() function
     assert sys.getrefcount(result) == 2
 
 
+@pytest.mark.parametrize('arg,return_value', [(1, (1, 1)), ([1], ([1], [1]))])
+def test_compile_single_function_with_single_args(compiled_function_with_cpp_single_arg, arg, return_value):
 
+    tested_module, func_name = compiled_function_with_cpp_single_arg
+
+    assert hasattr(tested_module, func_name)
+
+    compiled_function = getattr(tested_module, func_name)
+
+    result = compiled_function(arg)
+    assert result == return_value
+
+    # ensuring only one reference exists, plus the reference in the sys.getrefcount() function
+    assert sys.getrefcount(result) == 2
