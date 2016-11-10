@@ -13,6 +13,11 @@ import os
 STORE_FAST = dis.opmap['STORE_FAST']
 LOAD_CONST = dis.opmap['LOAD_CONST']
 
+METH_NOARGS = 'METH_NOARGS'
+METH_O = 'METH_O'
+METH_VARARGS = 'METH_VARARGS'
+METH_KEYWORDS = 'METH_VARARGS | METH_KEYWORDS'
+
 
 class IFunction(object):
     """Base interface of a function that can be compiled in an C extension
@@ -33,6 +38,19 @@ class IFunction(object):
             str: The C++ code of the function
         """
         raise NotImplementedError()
+
+    def get_function_def(self):
+        """`PyMethodDef` of the function
+
+        The returned string should be in format::
+
+            {"name of the method", <name of the C function>, <call flags>, <doc or nullptr>}
+
+        No trailing comma should be appended.
+
+        Returns:
+            str: The `PyMethodDef` description of the function
+        """
 
 
 class InlineFunction(IFunction):
@@ -68,6 +86,7 @@ class InlineFunction(IFunction):
         self._signature = inspect.signature(py_function)
         self._cpp_header_code = ''
         self._cpp_code = ''
+        self._function_def = ''
 
         self._parse_signature()
         self._create_cpp()
@@ -78,12 +97,10 @@ class InlineFunction(IFunction):
         format_string = ''
         default_values = dict()
         is_parsing_kwargs = False
-        keyword_args = list()
         variable_names = list()
 
         for arg in self._signature.parameters.values():
             var_name = arg.name
-            keyword_args.append('"%s"' % arg.name)
             variable_names.append(var_name)
 
             if arg.default is arg.empty:
@@ -95,12 +112,93 @@ class InlineFunction(IFunction):
                 format_string += 'O'
                 default_values[var_name] = repr(arg.default)
 
-        self._create_header(variable_names, format_string, keyword_args, default_values)
+        self._create_header(variable_names, format_string, default_values)
 
-    def _create_header(self, variable_names, format_string, keyword_args, default_values):
+    def _create_header(self, variable_names, format_string, default_values):
         """Create the signature and argument parsing code of the C++ function
         """
+        num_variable = len(variable_names)
+        num_keyword_args = len(default_values)
 
+        if num_variable == 0:
+            self._create_header_noargs()
+        elif num_variable == 1 and num_keyword_args == 0:
+            self._create_header_single_arg(variable_names[0])
+        elif num_variable > 1 and num_keyword_args == 0:
+            self._create_header_varargs(variable_names, format_string)
+        else:
+            self._create_header_keywords(variable_names, format_string, default_values)
+
+    def _create_header_noargs(self):
+        function_name = self._py_function.__name__
+
+        # Function signature
+        function_boilerplate = 'extern "C" PyObject* ' + function_name + '(PyObject* self)\n'
+        function_boilerplate += '{\n'
+
+        self._cpp_header_code = function_boilerplate
+
+        function_def = [
+            '"%s"' % function_name,
+            'reinterpret_cast<PyCFunction>(%s)' % function_name,
+            METH_NOARGS,
+            "nullptr"
+        ]
+
+        self._function_def = '{' + ','.join(function_def) + '}'
+
+    def _create_header_single_arg(self, variable_name):
+        function_name = self._py_function.__name__
+
+        # Function signature
+        function_boilerplate = 'extern "C" PyObject* ' + function_name
+        function_boilerplate += '(PyObject* self, PyObject* %s)\n' % variable_name
+        function_boilerplate += '{\n'
+
+        self._cpp_header_code = function_boilerplate
+
+        function_def = [
+            '"%s"' % function_name,
+            'reinterpret_cast<PyCFunction>(%s)' % function_name,
+            METH_O,
+            "nullptr"
+        ]
+
+        self._function_def = '{' + ','.join(function_def) + '}'
+
+    def _create_header_varargs(self, variable_names, format_string):
+        function_name = self._py_function.__name__
+
+        # Function signature
+        function_boilerplate = 'extern "C" PyObject* ' + \
+                               function_name + '(PyObject* self, PyObject* args)\n'
+        function_boilerplate += '{\n'
+
+        # Variable arguments declaration
+        variable_declaration = ('    PyObject* %s = nullptr;' % var_name for var_name in variable_names)
+        function_boilerplate += '\n'.join(variable_declaration)
+        function_boilerplate += '\n\n'
+
+        # Arguments parsing
+        parsing_args = ('&%s' % var_name for var_name in variable_names)
+        parsing_args = ', '.join(parsing_args)
+        function_boilerplate += '    if(!PyArg_ParseTuple(args, "%s", %s))\n' % \
+                                (format_string, parsing_args)
+        function_boilerplate += '        return nullptr;'
+        function_boilerplate += '\n\n'
+
+        self._cpp_header_code = function_boilerplate
+
+        function_def = [
+            '"%s"' % function_name,
+            'reinterpret_cast<PyCFunction>(%s)' % function_name,
+            METH_VARARGS,
+            "nullptr"
+        ]
+
+        self._function_def = '{' + ','.join(function_def) + '}'
+
+    def _create_header_keywords(self, variable_names, format_string, default_values):
         function_name = self._py_function.__name__
 
         # Function signature
@@ -108,13 +206,9 @@ class InlineFunction(IFunction):
                                function_name + '(PyObject* self, PyObject* args, PyObject* kwargs)\n'
         function_boilerplate += '{\n'
 
-        # Skip variable parsing if function has no arguments
-        if len(variable_names) == 0:
-            self._cpp_header_code = function_boilerplate
-            return
-
         # Definition of keyword arguments
-        function_boilerplate += '    static char* _keywords_[] = {%s,nullptr};\n' % ','.join(keyword_args)
+        keyword_names = ('"%s"' % arg for arg in variable_names)
+        function_boilerplate += '    static char* _keywords_[] = {%s,nullptr};\n' % ','.join(keyword_names)
 
         # Variable arguments declaration
         variable_declaration = ('    PyObject* %s = nullptr;' % var_name for var_name in variable_names)
@@ -151,6 +245,15 @@ class InlineFunction(IFunction):
 
         self._cpp_header_code = function_boilerplate
 
+        function_def = [
+            '"%s"' % function_name,
+            'reinterpret_cast<PyCFunction>(%s)' % function_name,
+            METH_KEYWORDS,
+            "nullptr"
+        ]
+
+        self._function_def = '{' + ','.join(function_def) + '}'
+
     def _create_cpp(self):
         """Extract the C++ code from the function
         """
@@ -170,3 +273,6 @@ class InlineFunction(IFunction):
 
     def get_code(self):
         return self._cpp_header_code + '\n    {\n' + self._cpp_code + '\n    }\n}\n'
+
+    def get_function_def(self):
+        return self._function_def

@@ -108,9 +108,6 @@ class InlineModule(object):
         module_header = '''
         #include <Python.h>
         #include <functional>
-        #include <pybind11/pybind11.h>
-
-        namespace py = pybind11;
 
         '''
 
@@ -125,10 +122,8 @@ class InlineModule(object):
         # Build method definition
         function_def = 'static PyMethodDef module_functions_def[] = {\n'
         for function in self._functions:
-            name = function.get_name()
-            function_def += '    {"%s", reinterpret_cast<PyCFunction>(%s), ' % (name, name)
-            function_def += 'METH_VARARGS | METH_KEYWORDS, nullptr},\n'
-        function_def += '    {NULL, NULL, 0, NULL}\n'
+            function_def += '    %s,\n' % function.get_function_def()
+        function_def += '    {nullptr, nullptr, 0, nullptr}\n'
         function_def += '};\n\n'
 
         # Merge all the code in a single source
