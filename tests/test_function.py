@@ -7,7 +7,7 @@ def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(None, "test")):
     """this is a doctring
     """
     __cpp__ = """
-    return PyBuildValue("(O,O,O,O,O)", a, b, c, d, e);
+    return Py_BuildValue("(O,O,O,O,O)", a, b, c, d, e);
     """
     return None
 
@@ -16,7 +16,7 @@ def function_with_cpp_args(a, b):
     """this is a doctring
     """
     __cpp__ = """
-    return PyBuildValue("(O,O)", a, b);
+    return Py_BuildValue("(O,O)", a, b);
     """
     return None
 
@@ -25,7 +25,7 @@ def function_with_cpp_single_args(a):
     """this is a doctring
     """
     __cpp__ = """
-    return PyBuildValue("(O,O)", a, a);
+    return Py_BuildValue("(O,O)", a, a);
     """
     return None
 

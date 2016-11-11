@@ -87,6 +87,8 @@ class InlineFunction(IFunction):
         self._cpp_header_code = ''
         self._cpp_code = ''
         self._function_def = ''
+        self._module_init_code = ''
+        self._module_header_code = ''
 
         self._parse_signature()
         self._create_cpp()
@@ -276,3 +278,9 @@ class InlineFunction(IFunction):
 
     def get_function_def(self):
         return self._function_def
+
+    def get_module_init_code(self):
+        return self._module_init_code
+
+    def get_module_header_code(self):
+        return self._module_header_code

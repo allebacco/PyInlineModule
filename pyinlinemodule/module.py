@@ -123,7 +123,8 @@ class InlineModule(object):
         function_def = 'static PyMethodDef module_functions_def[] = {\n'
         for function in self._functions:
             function_def += '    %s,\n' % function.get_function_def()
-        function_def += '    {nullptr, nullptr, 0, nullptr}\n'
+        #function_def += '    {nullptr, nullptr, 0, nullptr}\n'
+        function_def += '    nullptr\n'
         function_def += '};\n\n'
 
         # Merge all the code in a single source
