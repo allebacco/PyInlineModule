@@ -80,7 +80,6 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
     module_filename = None
     try:
         from setuptools import setup, Extension
-        import pybind11
 
         with open(mod_name_c, 'w') as module_cpp_file:
             # Write out the code.
