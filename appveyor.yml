@@ -3,7 +3,8 @@ build: false
 
 environment:
   matrix:
-    - PYTHON: "C:/Python34"
+    # Python 3.4 is not supported due to MSVC version
+    # - PYTHON: "C:/Python34"
     - PYTHON: "C:/Python35"
 
 init:
