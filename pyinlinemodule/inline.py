@@ -94,7 +94,6 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
         # Make sure numpy headers are included.
         if 'include_dirs' not in extension_kwargs:
             extension_kwargs['include_dirs'] = []
-        extension_kwargs['include_dirs'].append(pybind11.get_include())
 
         if 'extra_compile_args' not in extension_kwargs:
             extension_kwargs['extra_compile_args'] = list()
