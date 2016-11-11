@@ -2,40 +2,10 @@ import inspect
 import dis
 import os
 from importlib.machinery import ExtensionFileLoader
+from textwrap import dedent, indent
 
 from .function import InlineFunction, IFunction
 from .inline import build_install_module
-
-# Definition of the C++ class used for the release of the references to the
-# Python objects
-_OnLeavingScope_class = """
-
-class OnLeavingScope
-{
-public:
-    // Prevent copying
-    OnLeavingScope(const OnLeavingScope&) = delete;
-    OnLeavingScope& operator=(const OnLeavingScope&) = delete;
-
-    OnLeavingScope(const int count, PyObject*** objects) :
-        m_count(count),
-        m_objects(objects)
-    {}
-
-    ~OnLeavingScope()
-    {
-        for(int i=0; i<m_count; ++i)
-        {
-            PyObject** obj = m_objects[i];
-            Py_XDECREF(*obj);
-        }
-    }
-
-private:
-    const int m_count;
-    PyObject***  m_objects;
-};
-"""
 
 
 class InlineModule(object):
@@ -53,8 +23,6 @@ class InlineModule(object):
         self._cpp_code = ''
         self._cpp_footer = ''
 
-        self._create_footer()
-
     def _create_footer(self):
         """Create the module description and initialization function
         """
@@ -66,13 +34,21 @@ class InlineModule(object):
         module_def += '    module_functions_def\n'
         module_def += '};\n'
 
-        module_init = 'PyMODINIT_FUNC PyInit_%s(void)\n' % self._name
-        module_init += '{\n'
-        module_init += '    PyObject* module = PyModule_Create(&inline_module);\n'
-        module_init += '    if (module == nullptr)\n'
-        module_init += '        return nullptr;\n'
-        module_init += '    return module;\n'
-        module_init += '}\n'
+        functions_init = '\n'.join((f.get_module_init_code() for f in self._functions))
+        module_init = dedent('''
+        PyMODINIT_FUNC PyInit_%s(void)
+        {
+            PyObject* module = PyModule_Create(&inline_module);
+            if (module == nullptr)
+                return nullptr;
+
+            PyObject* scope = PyEval_GetGlobals();
+
+            %s
+
+            return module;
+        }
+        ''') % (self._name, functions_init)
 
         self._cpp_footer = module_def + '\n\n' + module_init
 
@@ -89,6 +65,7 @@ class InlineModule(object):
 
         # Invalidate CPP code
         self._cpp_code = ''
+        self._cpp_footer = ''
 
     def get_cpp_code(self):
         """C++ code of the module
@@ -104,14 +81,17 @@ class InlineModule(object):
         """Create the C++ code of the module
         """
 
+        self._create_footer()
+
         # Build include
-        module_header = '''
+        module_header = dedent('''
         #include <Python.h>
         #include <functional>
 
-        '''
+        ''')
 
-        module_header += _OnLeavingScope_class + '\n\n'
+        for function in self._functions:
+            module_header += function.get_module_header_code() + '\n\n'
 
         # Merge code of all the functions
         function_code = ''
@@ -123,7 +103,6 @@ class InlineModule(object):
         function_def = 'static PyMethodDef module_functions_def[] = {\n'
         for function in self._functions:
             function_def += '    %s,\n' % function.get_function_def()
-        #function_def += '    {nullptr, nullptr, 0, nullptr}\n'
         function_def += '    nullptr\n'
         function_def += '};\n\n'
 

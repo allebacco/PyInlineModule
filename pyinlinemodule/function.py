@@ -8,6 +8,7 @@ MIT license that can be found in the LICENSE file.
 import inspect
 import dis
 import os
+from textwrap import dedent, indent
 
 
 STORE_FAST = dis.opmap['STORE_FAST']
@@ -51,6 +52,23 @@ class IFunction(object):
         Returns:
             str: The `PyMethodDef` description of the function
         """
+        raise NotImplementedError()
+
+    def get_module_init_code(self):
+        """C++ code that should be executed in the module init function
+
+        Returns:
+            str: The C++ code to execute during module init
+        """
+        return ''
+
+    def get_module_header_code(self):
+        """C++ code to be placed before the all the function code
+
+        Returns:
+            str: The C++ code to place before functions
+        """
+        return ''
 
 
 class InlineFunction(IFunction):
@@ -135,7 +153,7 @@ class InlineFunction(IFunction):
         function_name = self._py_function.__name__
 
         # Function signature
-        function_boilerplate = 'extern "C" PyObject* ' + function_name + '(PyObject* self)\n'
+        function_boilerplate = 'extern "C" PyObject* {0}(PyObject* self)\n'.format(function_name)
         function_boilerplate += '{\n'
 
         self._cpp_header_code = function_boilerplate
@@ -153,8 +171,8 @@ class InlineFunction(IFunction):
         function_name = self._py_function.__name__
 
         # Function signature
-        function_boilerplate = 'extern "C" PyObject* ' + function_name
-        function_boilerplate += '(PyObject* self, PyObject* %s)\n' % variable_name
+        function_boilerplate = 'extern "C" ' \
+            'PyObject* {0}(PyObject* self, PyObject* {1})\n'.format(function_name, variable_name)
         function_boilerplate += '{\n'
 
         self._cpp_header_code = function_boilerplate
@@ -172,22 +190,23 @@ class InlineFunction(IFunction):
         function_name = self._py_function.__name__
 
         # Function signature
-        function_boilerplate = 'extern "C" PyObject* ' + \
-                               function_name + '(PyObject* self, PyObject* args)\n'
+        function_boilerplate = 'extern "C" PyObject* {0}(PyObject* self, PyObject* args)\n'.format(function_name)
         function_boilerplate += '{\n'
 
         # Variable arguments declaration
-        variable_declaration = ('    PyObject* %s = nullptr;' % var_name for var_name in variable_names)
-        function_boilerplate += '\n'.join(variable_declaration)
+        variable_declaration = ('PyObject* %s = nullptr;' % var_name for var_name in variable_names)
+        function_boilerplate += indent('\n'.join(variable_declaration), '    ')
         function_boilerplate += '\n\n'
 
         # Arguments parsing
-        parsing_args = ('&%s' % var_name for var_name in variable_names)
+        parsing_args = ('&' + var_name for var_name in variable_names)
         parsing_args = ', '.join(parsing_args)
-        function_boilerplate += '    if(!PyArg_ParseTuple(args, "%s", %s))\n' % \
-                                (format_string, parsing_args)
-        function_boilerplate += '        return nullptr;'
-        function_boilerplate += '\n\n'
+        parsetuple = dedent('''
+        if(!PyArg_ParseTuple(args, "{0}", {1}))
+            return nullptr;
+        ''').format(format_string, parsing_args)
+        function_boilerplate += indent(parsetuple, '    ')
+        function_boilerplate += '\n'
 
         self._cpp_header_code = function_boilerplate
 
@@ -204,48 +223,57 @@ class InlineFunction(IFunction):
         function_name = self._py_function.__name__
 
         # Function signature
-        function_boilerplate = 'extern "C" PyObject* ' + \
-                               function_name + '(PyObject* self, PyObject* args, PyObject* kwargs)\n'
-        function_boilerplate += '{\n'
-
-        # Definition of keyword arguments
         keyword_names = ('"%s"' % arg for arg in variable_names)
-        function_boilerplate += '    static char* _keywords_[] = {%s,nullptr};\n' % ','.join(keyword_names)
+        func_signature = dedent('''
+        extern "C" PyObject* %s(PyObject* self, PyObject* args, PyObject* kwargs)
+        {
+            static char* _keywords_[] = {%s,nullptr};
+        ''') % (function_name, ','.join(keyword_names))
+
+        function_boilerplate = func_signature
 
         # Variable arguments declaration
-        variable_declaration = ('    PyObject* %s = nullptr;' % var_name for var_name in variable_names)
-        function_boilerplate += '\n'.join(variable_declaration)
-        function_boilerplate += '\n\n'
+        for var_name in variable_names:
+            if var_name in default_values.keys():
+                dec = 'PyObject* {0} = __{1}_{0};\n'.format(var_name, function_name)
+            else:
+                dec = 'PyObject* {0} = nullptr;\n'.format(var_name)
+            function_boilerplate += indent(dec, '    ')
 
-        dec_ref_variables = ('&%s' % var_name for var_name in variable_names)
-        function_boilerplate += '    PyObject** __obj_to_be_released[] = {%s};' % ','.join(dec_ref_variables)
-        function_boilerplate += '    OnLeavingScope __on_leaving_scope('
-        function_boilerplate += '%d, __obj_to_be_released);\n\n' % len(variable_names)
+        function_boilerplate += '\n'
 
         # Arguments parsing
-        parsing_args = ('&%s' % var_name for var_name in variable_names)
+        parsing_args = ('&' + var_name for var_name in variable_names)
         parsing_args = ', '.join(parsing_args)
-        function_boilerplate += '    if(!PyArg_ParseTupleAndKeywords(args, kwargs, "%s", _keywords_, %s))\n' % \
-                                (format_string, parsing_args)
-        function_boilerplate += '        return nullptr;'
-        function_boilerplate += '\n\n'
-
-        # Increment reference counting because OnLeavingScope instance decrements them at destruction
-        for var_name in variable_names:
-            function_boilerplate += '    Py_XINCREF(%s);\n' % var_name
-        function_boilerplate += '    \n'
-
-        # Assign default values
-        if len(default_values) > 0:
-            function_boilerplate += '    PyObject* scope = PyEval_GetGlobals();\n'
-            for var_name, default_value in default_values.items():
-                function_boilerplate += '    if(%s == nullptr)\n' % var_name
-                function_boilerplate += '    {\n'
-                function_boilerplate += '        static const char* default_value_repr = "%s";\n' % default_value
-                function_boilerplate += '        %s = PyRun_String(default_value_repr, Py_eval_input, scope, scope);\n' % var_name
-                function_boilerplate += '    }\n'
+        parsetuplekewords = dedent('''
+        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "{0}", _keywords_, {1}))
+            return nullptr;
+        ''').format(format_string, parsing_args)
+        function_boilerplate += indent(parsetuplekewords, '    ')
+        function_boilerplate += '\n'
 
         self._cpp_header_code = function_boilerplate
+
+        kwargs_header_def = (
+            'static PyObject* __{0}_{1} = nullptr;'.format(function_name, arg)
+            for arg in default_values.keys()
+        )
+        self._module_header_code = '\n'.join(kwargs_header_def)
+
+        # Add default values of keyword arguments to static PyObject variables
+        # and registeer them as module objects to move the responsibility of
+        # their reference counting to Python module itself
+        module_init = '{\n'
+        for var_name, default_value in default_values.items():
+            kwarg_init_default = dedent('''
+            static const char* default_value_repr = "{0}";
+            __{1}_{2} = PyRun_String(default_value_repr, Py_eval_input, scope, scope);
+            PyModule_AddObject(module, "__{1}_{2}", __{1}_{2});
+            ''').format(default_value, function_name, var_name)
+            module_init += '{\n%s\n}\n' % indent(kwarg_init_default, '    ')
+        module_init += '}\n'
+
+        self._module_init_code = indent(module_init, '    ')
 
         function_def = [
             '"%s"' % function_name,
@@ -253,7 +281,6 @@ class InlineFunction(IFunction):
             METH_KEYWORDS,
             "nullptr"
         ]
-
         self._function_def = '{' + ','.join(function_def) + '}'
 
     def _create_cpp(self):

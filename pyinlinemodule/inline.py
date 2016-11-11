@@ -23,11 +23,17 @@ if os.name == 'posix':
     # Compile args for Linux systems, in particular GCC
     _EXTRA_COMPILE_ARGS += ['-O3', '-march=native', '-std=c++11']
     _MOD_EXTENSION = '.so'
+    _PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | \
+                   stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP | \
+                   stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
 
 elif os.name == 'nt':
     # Compile args for Windows systems, in particular MSVC
     _EXTRA_COMPILE_ARGS = ['/O2']
     _MOD_EXTENSION = '.pyd'
+    _PERMISSIONS = stat.S_IWRITE | stat.S_IREAD
+
+os.chmod(_PATH, _PERMISSIONS)
 
 
 def extra_compile_args():
@@ -120,7 +126,7 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
 
         module_filename = matched_files[0]
 
-        os.chmod(module_filename, stat.S_IWRITE | stat.S_IREAD)
+        os.chmod(module_filename, _PERMISSIONS)
     except:
         if silent is False:
             import traceback
