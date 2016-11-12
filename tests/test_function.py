@@ -2,6 +2,8 @@ import pytest
 
 from pyinlinemodule.function import InlineFunction, METH_NOARGS, METH_O, METH_VARARGS, METH_KEYWORDS
 
+THIS_IS_CPP_CODE = "this_is_cpp_code"
+
 
 def function_with_cpp_args_kwargs(a, b, c=None, d=3, e=(None, "test")):
     """this is a doctring
@@ -41,6 +43,18 @@ def function_with_cpp_noargs():
     return 5
 
 
+def function_with_cpp_code_in_local():
+    """this is a doctring
+    """
+    __cpp__ = "this_is_cpp_code"
+
+
+def function_with_cpp_code_in_global():
+    """this is a doctring
+    """
+    __cpp__ = THIS_IS_CPP_CODE
+
+
 @pytest.mark.parametrize('func_call,expected_name', [
     (function_with_cpp_args_kwargs, 'function_with_cpp_args_kwargs'),
     (function_with_cpp_args, 'function_with_cpp_args'),
@@ -66,3 +80,12 @@ def test_function_def(func_call, expected_name, meth_def):
 
     pyfunction = InlineFunction(func_call)
     assert pyfunction.get_function_def() == expected_result
+
+
+@pytest.mark.parametrize('func_call', [
+    function_with_cpp_code_in_local, function_with_cpp_code_in_global
+])
+def test_function_load_cpp_code(func_call):
+
+    pyfunction = InlineFunction(func_call)
+    assert pyfunction._cpp_code == THIS_IS_CPP_CODE

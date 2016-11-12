@@ -13,6 +13,7 @@ from textwrap import dedent, indent
 
 STORE_FAST = dis.opmap['STORE_FAST']
 LOAD_CONST = dis.opmap['LOAD_CONST']
+LOAD_GLOBAL = dis.opmap['LOAD_GLOBAL']
 
 METH_NOARGS = 'METH_NOARGS'
 METH_O = 'METH_O'
@@ -292,6 +293,8 @@ class InlineFunction(IFunction):
             opcode = instruction.opcode
             if opcode == LOAD_CONST:
                 cpp_code = instruction.argval
+            elif opcode == LOAD_GLOBAL:
+                cpp_code = self._py_function.__globals__[instruction.argval]
             elif opcode == STORE_FAST and instruction.argval == '__cpp__':
                 break
 
