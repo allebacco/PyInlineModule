@@ -1,5 +1,6 @@
 import sys
 import pytest
+import numpy as np
 
 from pyinlinemodule.module import InlineModule
 
@@ -36,6 +37,17 @@ def function_with_cpp_noargs():
     """
     __cpp__ = """
     return Py_BuildValue("(i,i,i)", 1, 2, 3);
+    """
+
+    i = 0
+    return 5
+
+
+def function_with_cpp_numpy_returns_arange(start, stop, step):
+    """this is a doctring
+    """
+    __cpp__ = """
+    return PyArray_Arange(PyFloat_AsDouble(start), PyFloat_AsDouble(stop), PyFloat_AsDouble(step), NPY_FLOAT64);
     """
 
     i = 0
@@ -139,3 +151,26 @@ def test_compile_single_function_with_single_args(compiled_function_with_cpp_sin
 
     # ensuring only one reference exists, plus the reference in the sys.getrefcount() function
     assert sys.getrefcount(result) == 2
+
+
+@pytest.mark.parametrize('py_function,function_name,args,return_value', [
+    (
+        function_with_cpp_numpy_returns_arange,
+        'function_with_cpp_numpy_returns_arange',
+        (0., 10., 1.),
+        np.arange(0., 10., 1., dtype=np.float64)
+    ),
+])
+def test_compile_single_function_with_numpy(py_function, function_name, args, return_value):
+
+    inline_module = InlineModule('test_compile_single_function_with_numpy', enable_numpy=True)
+    inline_module.add_function(py_function)
+    tested_module = inline_module.import_module()
+
+    assert hasattr(tested_module, function_name)
+
+    compiled_function = getattr(tested_module, function_name)
+
+    result = compiled_function(*args)
+    assert np.all(result == return_value)
+

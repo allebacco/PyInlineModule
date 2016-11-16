@@ -12,7 +12,7 @@ class InlineModule(object):
     """Module that can be compiled to a C Extension
     """
 
-    def __init__(self, name):
+    def __init__(self, name, enable_numpy=False, enable_pybind11=False):
         """Constructor
 
         Args:
@@ -22,6 +22,8 @@ class InlineModule(object):
         self._functions = list()
         self._cpp_code = ''
         self._cpp_footer = ''
+        self._enable_numpy = enable_numpy
+        self._enable_pybind11 = enable_pybind11
 
     def _create_footer(self):
         """Create the module description and initialization function
@@ -33,6 +35,10 @@ class InlineModule(object):
         module_def += '    -1,\n'
         module_def += '    module_functions_def\n'
         module_def += '};\n'
+
+        other_init_code = ''
+        if self._enable_numpy:
+            other_init_code += 'import_array();'
 
         functions_init = '\n'.join((f.get_module_init_code() for f in self._functions))
         module_init = dedent('''
@@ -46,9 +52,11 @@ class InlineModule(object):
 
             %s
 
+            %s
+
             return module;
         }
-        ''') % (self._name, functions_init)
+        ''') % (self._name, functions_init, other_init_code)
 
         self._cpp_footer = module_def + '\n\n' + module_init
 
@@ -64,8 +72,11 @@ class InlineModule(object):
         self._functions.append(inline_function)
 
         # Invalidate CPP code
-        self._cpp_code = ''
-        self._cpp_footer = ''
+        self._reset()
+
+    def setEnableNumpy(self, enable=True):
+        self._enable_numpy = enable
+        self._reset()
 
     def get_cpp_code(self):
         """C++ code of the module
@@ -77,6 +88,10 @@ class InlineModule(object):
             self._create_code()
         return self._cpp_code
 
+    def _reset(self):
+        self._cpp_code = ''
+        self._cpp_footer = ''
+
     def _create_code(self):
         """Create the C++ code of the module
         """
@@ -86,9 +101,15 @@ class InlineModule(object):
         # Build include
         module_header = dedent('''
         #include <Python.h>
-        #include <functional>
 
         ''')
+
+        if self._enable_numpy:
+            module_header += dedent('''
+            #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+            #define PY_ARRAY_UNIQUE_SYMBOL  numpy_ARRAY_API
+            #include <numpy/arrayobject.h>
+            ''')
 
         for function in self._functions:
             module_header += function.get_module_header_code() + '\n\n'
@@ -130,7 +151,13 @@ class InlineModule(object):
         """
         # Build module
         cpp_code = self.get_cpp_code()
-        module_filename = build_install_module(cpp_code, self._name,
+
+        extension_kwargs = dict()
+        if self._enable_numpy:
+            import numpy as np
+            extension_kwargs['include_dirs'] = [np.get_include()]
+
+        module_filename = build_install_module(cpp_code, self._name, extension_kwargs=extension_kwargs,
                                                module_dir=module_dir, silent=silent)
 
         if module_filename is None:

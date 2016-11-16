@@ -97,10 +97,6 @@ def build_install_module(module_src, mod_name, extension_kwargs=None, module_dir
         else:
             extension_kwargs = extension_kwargs.copy()
 
-        # Make sure numpy headers are included.
-        if 'include_dirs' not in extension_kwargs:
-            extension_kwargs['include_dirs'] = []
-
         if 'extra_compile_args' not in extension_kwargs:
             extension_kwargs['extra_compile_args'] = list()
         extension_kwargs['extra_compile_args'] += _EXTRA_COMPILE_ARGS
