@@ -74,7 +74,12 @@ class InlineModule(object):
         # Invalidate CPP code
         self._reset()
 
-    def setEnableNumpy(self, enable=True):
+    def set_enable_numpy(self, enable=True):
+        """Enable the support for `numpy` C API
+
+        Keyword Args:
+            enable(bool): ``True`` for enabling `numpy` support, ``False`` to disable it.
+        """
         self._enable_numpy = enable
         self._reset()
 
@@ -121,11 +126,14 @@ class InlineModule(object):
             function_code += '\n\n'
 
         # Build method definition
-        function_def = 'static PyMethodDef module_functions_def[] = {\n'
-        for function in self._functions:
-            function_def += '    %s,\n' % function.get_function_def()
-        function_def += '    nullptr\n'
-        function_def += '};\n\n'
+
+        function_def_iter = (f.get_function_def() for f in self._functions)
+        function_def = dedent('''
+        static PyMethodDef module_functions_def[] = {
+            %s,
+            nullptr
+        };
+        ''') % '    ,\n'.join(function_def_iter)
 
         # Merge all the code in a single source
         cpp_code = module_header + '\n\n'

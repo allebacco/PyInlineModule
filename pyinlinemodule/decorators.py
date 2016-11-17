@@ -34,7 +34,7 @@ class Cpp(object):
 
         name = func.__module__ + '_' + func.__name__
         try:
-            inline_module = InlineModule(name)
+            inline_module = InlineModule(name, enable_numpy=self._enable_numpy)
             inline_module.add_function(func)
             loaded = inline_module.import_module(silent=False)
             out_function = getattr(loaded, func.__name__)

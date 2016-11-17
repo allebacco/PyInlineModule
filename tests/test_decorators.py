@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 
 from pyinlinemodule import Cpp
 
@@ -31,6 +32,18 @@ def function_with_cpp_args_kwargs_from_globals(int_value=A_GLOBAL_INT_VALUE, str
     return Py_BuildValue("(O,O)", int_value, string_value);
     """
     return None
+
+
+@Cpp(enable_numpy=True)
+def function_with_cpp_numpy_returns_arange(start, stop, step):
+    """this is a doctring
+    """
+    __cpp__ = """
+    return PyArray_Arange(PyFloat_AsDouble(start), PyFloat_AsDouble(stop), PyFloat_AsDouble(step), NPY_FLOAT64);
+    """
+
+    i = 0
+    return 5
 
 
 @pytest.mark.parametrize('func,arg,expected', [
@@ -73,3 +86,10 @@ def test_cpp_function_with_values_from_globals():
     expencted_result = (A_GLOBAL_INT_VALUE, A_GLOBAL_STRING_VALUE)
 
     assert function_with_cpp_args_kwargs_from_globals() == expencted_result
+
+
+def test_cpp_function_with_numpy():
+
+    test_result = function_with_cpp_numpy_returns_arange(0., 10., 1.)
+
+    assert np.all(test_result == np.arange(0., 10., 1.))
