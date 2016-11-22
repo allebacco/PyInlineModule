@@ -36,7 +36,8 @@ class Cpp(object):
         try:
             inline_module = InlineModule(name, enable_numpy=self._enable_numpy)
             inline_module.add_function(func)
-            loaded = inline_module.import_module(silent=False)
+            silent = not self._verbose
+            loaded = inline_module.import_module(silent=silent)
             out_function = getattr(loaded, func.__name__)
         except:
             out_function = func
