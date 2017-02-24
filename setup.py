@@ -80,5 +80,5 @@ setup(
     # },
 
     setup_requires=['pytest-runner'],
-    tests_require=['pytest', 'numpy', 'pybind11'],
+    tests_require=['pytest', 'numpy'],
 )

@@ -34,7 +34,7 @@ if os.name == 'posix':
 
 elif os.name == 'nt':
     # Compile args for Windows systems, in particular MSVC
-    _EXTRA_COMPILE_ARGS = ['/O2']
+    _EXTRA_COMPILE_ARGS = ['/O2', ' /GL-', '/MP', '/LTCG:OFF']
     _MOD_EXTENSION = '.pyd'
     _PERMISSIONS = stat.S_IWRITE | stat.S_IREAD
 
