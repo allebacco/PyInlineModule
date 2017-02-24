@@ -6,17 +6,22 @@ import glob
 import stat
 
 
-_PATH = tempfile.mkdtemp(prefix='pyinline_tmp_')
+if 'PY_INLINE_TEMP' in os.environ:
+    _PATH = os.environ['PY_INLINE_TEMP']
+else:
+    _PATH = tempfile.mkdtemp(prefix='pyinline_tmp_')
+
 _EXTRA_COMPILE_ARGS = []
 _MOD_EXTENSION = '.pyd'
 
 
 # Remove the temporary directory at exit
-def cleanup_temp_folder(temp_dir):
+def _cleanup_temp_folder(temp_dir):
+    """Remove a directory tree"""
     os.chmod(temp_dir, stat.S_IWRITE)
     shutil.rmtree(temp_dir, ignore_errors=True)
 
-atexit.register(cleanup_temp_folder, _PATH)
+atexit.register(_cleanup_temp_folder, _PATH)
 
 
 if os.name == 'posix':
@@ -24,8 +29,8 @@ if os.name == 'posix':
     _EXTRA_COMPILE_ARGS += ['-O3', '-march=native', '-std=c++11']
     _MOD_EXTENSION = '.so'
     _PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | \
-                   stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP | \
-                   stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
+        stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP | \
+        stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
 
 elif os.name == 'nt':
     # Compile args for Windows systems, in particular MSVC
